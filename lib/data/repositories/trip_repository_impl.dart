@@ -12,6 +12,11 @@ class TripRepositoryImpl implements TripRepository {
 
   @override
   Future<Trip> startTrip() async {
+    final Trip? runningTrip = await _localDataSource.getActiveTrip();
+    if (runningTrip != null) {
+      return runningTrip;
+    }
+
     final DateTime now = DateTime.now();
     final TripModel trip = TripModel(
       id: 'TRIP-${now.millisecondsSinceEpoch}',

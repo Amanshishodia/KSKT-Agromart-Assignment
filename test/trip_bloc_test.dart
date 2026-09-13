@@ -89,6 +89,20 @@ void main() {
   );
 
   blocTest<TripBloc, TripState>(
+    'does not start a second trip when start is submitted twice',
+    setUp: () {
+      when(() => requestLocationPermission()).thenAnswer((_) async => true);
+      when(() => startTrip()).thenAnswer((_) async => activeTrip);
+    },
+    build: buildBloc,
+    act: (TripBloc bloc) async {
+      bloc.add(const TripStarted());
+      bloc.add(const TripStarted());
+    },
+    verify: (_) => verify(() => startTrip()).called(1),
+  );
+
+  blocTest<TripBloc, TripState>(
     'shows an error when permission is denied',
     setUp: () {
       when(() => requestLocationPermission()).thenAnswer((_) async => false);

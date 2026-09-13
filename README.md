@@ -129,6 +129,10 @@ maximum speed stay correct.
 | Background / screen locked - iOS | `UIBackgroundModes: location` plus `allowBackgroundLocationUpdates` keeps updates coming |
 | App terminated (swiped away) | Tracking stops. The active trip stays in SQLite, and when the app is opened again `TripRestored` loads it and tracking continues |
 
+Verified on the iOS simulator: with the app sent to the background, recording continued from 23 to
+52 points over thirty seconds, and after killing and reopening the app the same trip resumed with
+its distance intact.
+
 That last row is the known limitation of this simple version. Neither platform lets an ordinary app
 keep running after the user swipes it away without extra machinery:
 
@@ -141,6 +145,68 @@ keep running after the user swipes it away without extra machinery:
 
 The trip itself is never lost, because every accepted point is written to SQLite immediately and the
 trip is resumed the next time the app is opened.
+
+---
+
+## Testing the edge cases
+
+The app writes everything to SQLite, so the easiest way to check a result is to read the database
+directly. On the iOS simulator:
+
+```bash
+DB=$(xcrun simctl get_app_container booted com.example.riderTrackingApp data)/Documents/rider_tracking.db
+sqlite3 "$DB" "SELECT id, status, round(distance), round(max_speed,1) FROM trips;"
+```
+
+### GPS jumps to an unrealistic location and comes back
+
+1. Start a trip and let it record for a while.
+2. Teleport the device far away:
+   `xcrun simctl location booted set 29.5000,78.5000`
+   (Android emulator: Extended controls, Location, set the coordinates and press Send.)
+3. Wait ten seconds, then put it back on the route:
+   `xcrun simctl location booted start --speed=12 <lat>,<lng> <lat2>,<lng2>`
+
+Expected: distance and maximum speed do not move while the device is at the fake position, no point
+at that position is stored, and normal recording resumes afterwards.
+
+### Background and locked screen
+
+1. Start a trip with the location moving.
+2. Press the home button, or lock the screen.
+3. Wait, then check the database or reopen the app.
+
+Expected: points keep being recorded while the app is not in front. On Android a notification is
+shown for as long as tracking runs.
+
+### The app is killed during an active trip
+
+1. Start a trip.
+2. Kill the app: swipe it away, or `xcrun simctl terminate booted com.example.riderTrackingApp`.
+3. Open it again.
+
+Expected: the same trip id is still active, the distance recorded so far is intact, and tracking
+continues. Tracking does not run while the app is killed - see the table above.
+
+### The device restarts during an active trip
+
+Same as the previous case: the trip is read back from SQLite the next time the app is opened.
+
+### No internet connection
+
+Turn on airplane mode before or during a trip. Expected: no difference at all, because there is no
+backend and every reading is written locally.
+
+### The same action is submitted twice
+
+Tap Start Trip (or End Trip) twice quickly. Expected: one trip. `TripStarted` and `TripEnded` use a
+`droppable()` transformer so a second tap is ignored while the first is still being handled, and
+`TripRepositoryImpl.startTrip` returns the trip that is already running instead of creating another.
+
+### Permission denied
+
+Deny the location permission when asked. Expected: the trip does not start and a message explains
+why.
 
 ---
 
@@ -168,13 +234,14 @@ For background tracking the rider has to choose **Allow all the time**.
 
 ## Tests
 
-15 tests, no device needed.
+19 tests, no device needed.
 
 | File | Covers |
 | --- | --- |
 | `test/location_filter_test.dart` | Poor accuracy, unrealistic speed, a GPS jump, standing-still noise, a valid move |
 | `test/record_location_test.dart` | Rejected readings are not saved, distance is added, speed is derived or taken from the platform |
-| `test/trip_bloc_test.dart` | Start with and without permission, restore an active trip, end a trip, ignore a rejected location |
+| `test/trip_repository_impl_test.dart` | Starting twice returns the running trip, a trip is created only when none is running, ending marks it completed |
+| `test/trip_bloc_test.dart` | Start with and without permission, a double start creates one trip, restore an active trip, end a trip, ignore a rejected location |
 
 ---
 

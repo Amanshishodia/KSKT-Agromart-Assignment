@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:bloc_concurrency/bloc_concurrency.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -26,8 +27,8 @@ class TripBloc extends Bloc<TripEvent, TripState> {
     required this.requestLocationPermission,
   }) : super(const TripState()) {
     on<TripRestored>(_onTripRestored);
-    on<TripStarted>(_onTripStarted);
-    on<TripEnded>(_onTripEnded);
+    on<TripStarted>(_onTripStarted, transformer: droppable());
+    on<TripEnded>(_onTripEnded, transformer: droppable());
     on<TripLocationReceived>(_onTripLocationReceived);
   }
 
@@ -66,6 +67,10 @@ class TripBloc extends Bloc<TripEvent, TripState> {
     TripStarted event,
     Emitter<TripState> emit,
   ) async {
+    if (state.isTracking) {
+      return;
+    }
+
     final bool granted = await requestLocationPermission();
     if (!granted) {
       emit(
