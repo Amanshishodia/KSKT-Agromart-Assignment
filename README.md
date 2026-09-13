@@ -143,7 +143,7 @@ maximum speed stay correct.
 | App open | The location stream runs in the app |
 | Background / screen locked - Android | `geolocator` runs a foreground service with an ongoing notification, so updates keep arriving |
 | Background / screen locked - iOS | `UIBackgroundModes: location` plus `allowBackgroundLocationUpdates` keeps updates coming |
-| App terminated (swiped away) | Tracking stops. The active trip stays in SQLite, and when the app is opened again `TripRestored` loads it and tracking continues |
+| App terminated (swiped away) | Tracking stops. The active trip stays in SQLite. When the app is opened again it checks the location permission: if it still has it, tracking resumes on its own, and if it does not, the trip is shown as **paused** with a **Resume Trip** button |
 
 Verified on the iOS simulator: with the app sent to the background, recording continued from 23 to
 52 points over thirty seconds, and after killing and reopening the app the same trip resumed with
@@ -224,6 +224,21 @@ Tap Start Trip (or End Trip) twice quickly. Expected: one trip. `TripStarted` an
 Deny the location permission when asked. Expected: the trip does not start and a message explains
 why.
 
+### Permission is taken away during a trip
+
+1. Start a trip, then kill the app.
+2. Turn the location permission off in the system settings (on the simulator:
+   `xcrun simctl privacy booted revoke location com.example.riderTrackingApp`).
+3. Open the app again.
+
+Expected: the trip is shown as **paused** with its distance and maximum speed intact, not as a
+trip that is silently recording nothing. Granting the permission again and tapping **Resume Trip**
+continues the same trip. If the system will no longer show a permission dialog, **Open Settings**
+takes the rider straight to the right screen.
+
+The same paused state appears if the location stream fails while a trip is running, for example
+when location services are switched off.
+
 ---
 
 ## Offline support
@@ -250,14 +265,14 @@ For background tracking the rider has to choose **Allow all the time**.
 
 ## Tests
 
-19 tests, no device needed.
+24 tests, no device needed.
 
 | File | Covers |
 | --- | --- |
 | `test/location_filter_test.dart` | Poor accuracy, unrealistic speed, a GPS jump, standing-still noise, a valid move |
 | `test/record_location_test.dart` | Rejected readings are not saved, distance is added, speed is derived or taken from the platform |
 | `test/trip_repository_impl_test.dart` | Starting twice returns the running trip, a trip is created only when none is running, ending marks it completed |
-| `test/trip_bloc_test.dart` | Start with and without permission, a double start creates one trip, restore an active trip, end a trip, ignore a rejected location |
+| `test/trip_bloc_test.dart` | Start with and without permission, a double start creates one trip, restore an active trip, pause when permission is missing, resume, pause when the location stream fails, end a trip, ignore a rejected location |
 
 ---
 

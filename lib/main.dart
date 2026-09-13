@@ -10,6 +10,8 @@ import 'domain/repositories/location_repository.dart';
 import 'domain/repositories/trip_repository.dart';
 import 'domain/usecases/end_trip.dart';
 import 'domain/usecases/get_active_trip.dart';
+import 'domain/usecases/has_location_permission.dart';
+import 'domain/usecases/open_location_settings.dart';
 import 'domain/usecases/record_location.dart';
 import 'domain/usecases/request_location_permission.dart';
 import 'domain/usecases/start_trip.dart';
@@ -62,6 +64,8 @@ class RiderTrackingApp extends StatelessWidget {
           watchLocation: WatchLocation(locationRepository),
           requestLocationPermission:
               RequestLocationPermission(locationRepository),
+          hasLocationPermission: HasLocationPermission(locationRepository),
+          openLocationSettings: OpenLocationSettings(locationRepository),
         )..add(const TripRestored()),
         child: const TripPage(),
       ),

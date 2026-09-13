@@ -8,6 +8,12 @@ class LocationRepositoryImpl implements LocationRepository {
   final LocationDataSource _dataSource;
 
   @override
+  Future<bool> hasPermission() => _dataSource.hasPermission();
+
+  @override
+  Future<void> openSettings() => _dataSource.openSettings();
+
+  @override
   Future<bool> requestPermission() => _dataSource.requestPermission();
 
   @override

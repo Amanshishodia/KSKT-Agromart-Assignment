@@ -1,6 +1,6 @@
 part of 'trip_bloc.dart';
 
-enum TripStatusView { initial, idle, tracking, completed, error }
+enum TripStatusView { initial, idle, tracking, paused, completed, error }
 
 class TripState extends Equatable {
   const TripState({
@@ -18,6 +18,10 @@ class TripState extends Equatable {
   final String? errorMessage;
 
   bool get isTracking => status == TripStatusView.tracking;
+
+  bool get isPaused => status == TripStatusView.paused;
+
+  bool get hasActiveTrip => trip?.isActive ?? false;
 
   double get distanceInMeters => trip?.distanceInMeters ?? 0;
 

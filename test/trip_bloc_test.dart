@@ -5,6 +5,8 @@ import 'package:rider_tracking_app/domain/entities/trip.dart';
 import 'package:rider_tracking_app/domain/entities/trip_location.dart';
 import 'package:rider_tracking_app/domain/usecases/end_trip.dart';
 import 'package:rider_tracking_app/domain/usecases/get_active_trip.dart';
+import 'package:rider_tracking_app/domain/usecases/has_location_permission.dart';
+import 'package:rider_tracking_app/domain/usecases/open_location_settings.dart';
 import 'package:rider_tracking_app/domain/usecases/record_location.dart';
 import 'package:rider_tracking_app/domain/usecases/request_location_permission.dart';
 import 'package:rider_tracking_app/domain/usecases/start_trip.dart';
@@ -24,6 +26,12 @@ class MockWatchLocation extends Mock implements WatchLocation {}
 class MockRequestLocationPermission extends Mock
     implements RequestLocationPermission {}
 
+class MockHasLocationPermission extends Mock
+    implements HasLocationPermission {}
+
+class MockOpenLocationSettings extends Mock
+    implements OpenLocationSettings {}
+
 void main() {
   late MockStartTrip startTrip;
   late MockEndTrip endTrip;
@@ -31,6 +39,8 @@ void main() {
   late MockRecordLocation recordLocation;
   late MockWatchLocation watchLocation;
   late MockRequestLocationPermission requestLocationPermission;
+  late MockHasLocationPermission hasLocationPermission;
+  late MockOpenLocationSettings openLocationSettings;
 
   final Trip activeTrip = Trip(
     id: 'TRIP-1',
@@ -58,6 +68,10 @@ void main() {
     recordLocation = MockRecordLocation();
     watchLocation = MockWatchLocation();
     requestLocationPermission = MockRequestLocationPermission();
+    hasLocationPermission = MockHasLocationPermission();
+    openLocationSettings = MockOpenLocationSettings();
+    when(() => openLocationSettings()).thenAnswer((_) async {});
+    when(() => hasLocationPermission()).thenAnswer((_) async => true);
 
     when(() => watchLocation()).thenAnswer(
       (_) => const Stream<TripLocation>.empty(),
@@ -72,6 +86,8 @@ void main() {
       recordLocation: recordLocation,
       watchLocation: watchLocation,
       requestLocationPermission: requestLocationPermission,
+      hasLocationPermission: hasLocationPermission,
+      openLocationSettings: openLocationSettings,
     );
   }
 
@@ -158,6 +174,91 @@ void main() {
         ),
       ),
     ],
+  );
+
+  blocTest<TripBloc, TripState>(
+    'pauses the restored trip when location access is off',
+    setUp: () {
+      when(() => getActiveTrip()).thenAnswer((_) async => activeTrip);
+      when(() => hasLocationPermission()).thenAnswer((_) async => false);
+    },
+    build: buildBloc,
+    act: (TripBloc bloc) => bloc.add(const TripRestored()),
+    expect: () => <Matcher>[
+      isA<TripState>()
+          .having((TripState s) => s.status, 'status', TripStatusView.paused)
+          .having((TripState s) => s.trip, 'trip', activeTrip),
+    ],
+    verify: (_) => verifyNever(() => watchLocation()),
+  );
+
+  blocTest<TripBloc, TripState>(
+    'resumes a paused trip once permission is granted',
+    setUp: () {
+      when(() => getActiveTrip()).thenAnswer((_) async => activeTrip);
+      when(() => hasLocationPermission()).thenAnswer((_) async => false);
+      when(() => requestLocationPermission()).thenAnswer((_) async => true);
+    },
+    build: buildBloc,
+    act: (TripBloc bloc) async {
+      bloc.add(const TripRestored());
+      await Future<void>.delayed(Duration.zero);
+      bloc.add(const TripResumed());
+    },
+    skip: 1,
+    expect: () => <Matcher>[
+      isA<TripState>()
+          .having((TripState s) => s.status, 'status', TripStatusView.tracking)
+          .having((TripState s) => s.trip, 'trip', activeTrip),
+    ],
+    verify: (_) => verify(() => watchLocation()).called(1),
+  );
+
+  blocTest<TripBloc, TripState>(
+    'stays paused when permission is still denied on resume',
+    setUp: () {
+      when(() => getActiveTrip()).thenAnswer((_) async => activeTrip);
+      when(() => hasLocationPermission()).thenAnswer((_) async => false);
+      when(() => requestLocationPermission()).thenAnswer((_) async => false);
+    },
+    build: buildBloc,
+    act: (TripBloc bloc) async {
+      bloc.add(const TripRestored());
+      await Future<void>.delayed(Duration.zero);
+      bloc.add(const TripResumed());
+    },
+    skip: 1,
+    expect: () => <Matcher>[
+      isA<TripState>()
+          .having((TripState s) => s.status, 'status', TripStatusView.paused),
+    ],
+    verify: (_) => verifyNever(() => watchLocation()),
+  );
+
+  blocTest<TripBloc, TripState>(
+    'pauses the trip when the location stream fails',
+    setUp: () {
+      when(() => getActiveTrip()).thenAnswer((_) async => activeTrip);
+      when(() => watchLocation()).thenAnswer(
+        (_) => Stream<TripLocation>.error(Exception('location service off')),
+      );
+    },
+    build: buildBloc,
+    act: (TripBloc bloc) => bloc.add(const TripRestored()),
+    skip: 1,
+    expect: () => <Matcher>[
+      isA<TripState>()
+          .having((TripState s) => s.status, 'status', TripStatusView.paused)
+          .having((TripState s) => s.trip, 'trip', activeTrip),
+    ],
+  );
+
+  blocTest<TripBloc, TripState>(
+    'opens the settings screen when asked',
+    build: buildBloc,
+    act: (TripBloc bloc) => bloc.add(const TripSettingsOpened()),
+    expect: () => <TripState>[],
+    verify: (_) => verify(() => openLocationSettings()).called(1),
   );
 
   blocTest<TripBloc, TripState>(

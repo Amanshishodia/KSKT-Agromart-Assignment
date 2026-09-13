@@ -5,12 +5,26 @@ import 'package:geolocator/geolocator.dart';
 import '../models/trip_location_model.dart';
 
 abstract class LocationDataSource {
+  Future<bool> hasPermission();
+
+  Future<void> openSettings();
+
   Future<bool> requestPermission();
 
   Stream<TripLocationModel> watchLocation();
 }
 
 class LocationDataSourceImpl implements LocationDataSource {
+  @override
+  Future<bool> hasPermission() async {
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      return false;
+    }
+    final LocationPermission permission = await Geolocator.checkPermission();
+    return permission == LocationPermission.always ||
+        permission == LocationPermission.whileInUse;
+  }
+
   @override
   Future<bool> requestPermission() async {
     if (!await Geolocator.isLocationServiceEnabled()) {
@@ -24,6 +38,15 @@ class LocationDataSourceImpl implements LocationDataSource {
 
     return permission == LocationPermission.always ||
         permission == LocationPermission.whileInUse;
+  }
+
+  @override
+  Future<void> openSettings() async {
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      await Geolocator.openLocationSettings();
+      return;
+    }
+    await Geolocator.openAppSettings();
   }
 
   @override

@@ -73,24 +73,7 @@ class TripPage extends StatelessWidget {
                 const SizedBox(height: 16),
                 _LocationCard(state: state),
                 const Spacer(),
-                SizedBox(
-                  height: 52,
-                  child: state.isTracking
-                      ? FilledButton(
-                          style: FilledButton.styleFrom(
-                            backgroundColor:
-                                Theme.of(context).colorScheme.error,
-                          ),
-                          onPressed: () =>
-                              context.read<TripBloc>().add(const TripEnded()),
-                          child: const Text('End Trip'),
-                        )
-                      : FilledButton(
-                          onPressed: () =>
-                              context.read<TripBloc>().add(const TripStarted()),
-                          child: const Text('Start Trip'),
-                        ),
-                ),
+                _ActionBar(state: state),
               ],
             ),
           );
@@ -119,6 +102,7 @@ class _StatusHeader extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
     final String label = switch (state.status) {
       TripStatusView.tracking => 'Trip in progress',
+      TripStatusView.paused => 'Trip paused',
       TripStatusView.completed => 'Trip completed',
       TripStatusView.error => 'Cannot start trip',
       _ => 'No active trip',
@@ -127,8 +111,16 @@ class _StatusHeader extends StatelessWidget {
     return Row(
       children: <Widget>[
         Icon(
-          state.isTracking ? Icons.navigation : Icons.pause_circle_outline,
-          color: state.isTracking ? Colors.green : theme.colorScheme.outline,
+          state.isTracking
+              ? Icons.navigation
+              : state.isPaused
+                  ? Icons.pause_circle_filled
+                  : Icons.pause_circle_outline,
+          color: state.isTracking
+              ? Colors.green
+              : state.isPaused
+                  ? Colors.orange
+                  : theme.colorScheme.outline,
         ),
         const SizedBox(width: 8),
         Expanded(
@@ -178,6 +170,81 @@ class _LocationCard extends StatelessWidget {
             Text('Accuracy: $accuracy', style: theme.textTheme.bodySmall),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ActionBar extends StatelessWidget {
+  const _ActionBar({required this.state});
+
+  final TripState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final TripBloc bloc = context.read<TripBloc>();
+
+    if (state.isTracking) {
+      return SizedBox(
+        height: 52,
+        child: FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+          onPressed: () => bloc.add(const TripEnded()),
+          child: const Text('End Trip'),
+        ),
+      );
+    }
+
+    if (state.isPaused) {
+      return Column(
+        children: <Widget>[
+          SizedBox(
+            height: 52,
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => bloc.add(const TripResumed()),
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('Resume Trip'),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: SizedBox(
+                  height: 48,
+                  child: OutlinedButton(
+                    onPressed: () => bloc.add(const TripSettingsOpened()),
+                    child: const Text('Open Settings'),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: SizedBox(
+                  height: 48,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Theme.of(context).colorScheme.error,
+                    ),
+                    onPressed: () => bloc.add(const TripEnded()),
+                    child: const Text('End Trip'),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+
+    return SizedBox(
+      height: 52,
+      child: FilledButton(
+        onPressed: () => bloc.add(const TripStarted()),
+        child: const Text('Start Trip'),
       ),
     );
   }
