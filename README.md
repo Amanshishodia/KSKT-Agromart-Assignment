@@ -7,6 +7,22 @@ Built with **BLoC** for state management and **clean architecture** for structur
 
 ---
 
+## Download the APK
+
+Every push to `main` runs a GitHub Actions workflow that analyzes the code, runs the tests and
+builds a release APK. The APK is attached to the run, so it can be installed without a Flutter
+setup.
+
+- **Latest build:** open the [Actions tab](../../actions), pick the most recent run and download
+  `kskt-agromart-rider-tracker-apk` from the Artifacts section (this needs a GitHub login).
+- **Tagged version:** the [Releases page](../../releases) has the APK as a direct download, with no
+  login required.
+
+The APK is signed with the debug key, so Android will warn about an unknown developer. Allow
+installation from the browser or file manager to continue.
+
+---
+
 ## Run it
 
 ```bash
